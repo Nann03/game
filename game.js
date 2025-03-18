@@ -15,7 +15,13 @@ let dx = 0;
 let dy = 0;
 let score = 0;
 let gameLoop;
-let speed = 100;
+let speed = 200;
+const MIN_SPEED = 80;
+const SPEED_DECREASE = 2;
+let directionQueue = [];
+let lastDirection = { dx: 0, dy: 0 };
+let lastDirectionChange = 0;
+const DIRECTION_CHANGE_DELAY = 50;
 
 function generateFood() {
     return {
@@ -25,6 +31,7 @@ function generateFood() {
 }
 
 function drawGame() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     clearCanvas();
     moveSnake();
     
@@ -39,11 +46,18 @@ function drawGame() {
 }
 
 function clearCanvas() {
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = '#f8f8f8';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function moveSnake() {
+    if (directionQueue.length > 0) {
+        const newDirection = directionQueue.shift();
+        dx = newDirection.dx;
+        dy = newDirection.dy;
+        lastDirection = { dx, dy };
+    }
+
     const head = { x: snake[0].x + dx, y: snake[0].y + dy };
     snake.unshift(head);
     if (!checkFoodCollision()) {
@@ -107,13 +121,16 @@ function checkCollision() {
     return false;
 }
 
+
 function checkFoodCollision() {
     const head = snake[0];
     if (head.x === food.x && head.y === food.y) {
         food = generateFood();
         score += 10;
         scoreElement.textContent = score;
-        speed = Math.max(50, speed - 2);
+        
+        // Gradually increase speed
+        speed = Math.max(MIN_SPEED, speed - SPEED_DECREASE);
         clearInterval(gameLoop);
         gameLoop = setInterval(drawGame, speed);
         return true;
@@ -133,26 +150,41 @@ function resetGame() {
     dx = 0;
     dy = 0;
     score = 0;
-    speed = 100;
+    speed = 200;
     scoreElement.textContent = score;
     gameOverElement.style.display = 'none';
     gameLoop = setInterval(drawGame, speed);
 }
 
 document.addEventListener('keydown', (event) => {
+    const now = Date.now();
+    if (now - lastDirectionChange < DIRECTION_CHANGE_DELAY) {
+        return;
+    }
+
+    let newDx = dx;
+    let newDy = dy;
+
     switch(event.key) {
         case 'ArrowUp':
-            if (dy !== 1) { dx = 0; dy = -1; }
+            if (lastDirection.dy !== 1) { newDx = 0; newDy = -1; }
             break;
         case 'ArrowDown':
-            if (dy !== -1) { dx = 0; dy = 1; }
+            if (lastDirection.dy !== -1) { newDx = 0; newDy = 1; }
             break;
         case 'ArrowLeft':
-            if (dx !== 1) { dx = -1; dy = 0; }
+            if (lastDirection.dx !== 1) { newDx = -1; newDy = 0; }
             break;
         case 'ArrowRight':
-            if (dx !== -1) { dx = 1; dy = 0; }
+            if (lastDirection.dx !== -1) { newDx = 1; newDy = 0; }
             break;
+        default:
+            return;
+    }
+
+    if (newDx !== dx || newDy !== dy) {
+        directionQueue.push({ dx: newDx, dy: newDy });
+        lastDirectionChange = now;
     }
 });
 
